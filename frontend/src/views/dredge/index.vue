@@ -42,9 +42,12 @@
         </tr>
       </thead>
       <tbody>
-        <tr v-for="row in rows" :key="String(row.id)">
+        <tr v-for="row in rows" :key="String(row.id)" :class="{ followup: isFollowUp(row) }">
           <td v-for="column in columns" :key="column">{{ row[column] ?? '—' }}</td>
-          <td>{{ row.status }}</td>
+          <td>
+            {{ row.status }}
+            <span v-if="isFollowUp(row)" class="followup-tag" :title="followUpTitle(row)">格栅转办·待复核</span>
+          </td>
           <td class="row-actions">
             <button
               v-for="action in actions"
@@ -84,8 +87,24 @@ import type { EntryRow } from '@/data/types'
 const meta = moduleMeta('dredge')
 const columns = ["清淤编号", "清淤管段", "淤积厚度", "清淤方式", "清淤班组", "清淤日期", "清淤量", "清淤状态"]
 const actions = ["提交清淤", "确认完工", "要求返工"]
-const statuses = ["待清淤", "清淤中", "已完工", "需返工"]
-const stats = [{"label": "待清淤管段", "value": 0}, {"label": "清淤中管段", "value": 0}, {"label": "本月完工数", "value": 0}]
+const statuses = ["待清淤", "待复核", "清淤中", "已完工", "需返工"]
+const stats = computed(() => {
+  const count = (status: string) => rows.value.filter((row) => String(row.status) === status).length
+  return [
+    { label: "待清淤管段", value: count("待清淤") },
+    { label: "待复核任务", value: count("待复核") },
+    { label: "清淤中管段", value: count("清淤中") },
+    { label: "本月完工数", value: count("已完工") },
+  ]
+})
+
+function isFollowUp(row: EntryRow): boolean {
+  return String(row.status) === '待复核' && row['sourceScreenId'] !== undefined
+}
+
+function followUpTitle(row: EntryRow): string {
+  return `由${String(row['来源泵站'] ?? '')}格栅清污 ${String(row['来源清污编号'] ?? '')} 完工后转来`
+}
 
 const rows = ref<EntryRow[]>([])
 const total = ref(0)
@@ -135,3 +154,16 @@ function reload() {
 
 onMounted(reload)
 </script>
+
+<style scoped>
+tr.followup { background: #f5f3ff; }
+.followup-tag {
+  display: inline-block;
+  margin-left: 6px;
+  background: #ede9fe;
+  color: #6d28d9;
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-size: 12px;
+}
+</style>
